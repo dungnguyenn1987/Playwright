@@ -87,14 +87,14 @@ https://playwright.dev/docs/api/class-browsercontext
 https://playwright.dev/docs/browser-contexts
 
 Tips for BrowserContext
-x Never Restart a Browser
-  x Slow instantiation (>100 ms)
-  x Huge memory overhead
+- (x) Never Restart a Brower
+  - (x) Slow instantiation (>100 ms)
+  - (x) Huge memory overhead
 
-v Always create Browser Contexts
-  v Full isolation
-  v Fast instantiation (~1ms)
-  v Low overhead
+- (v) Always create Browser Contexts
+  - (v) Full isolation
+  - (v) Fast instantiation (~1ms)
+  - (v) Low overhead
 
 ### Page
 A Page refers to a single tab or a popup window within a browser context
@@ -111,70 +111,232 @@ https://playwright.dev/docs/api/class-page
 
 ![image](https://github.com/user-attachments/assets/1a78bc43-d74b-47ca-974a-197ab3910177)
 
+https://playwright.dev/docs/locators
+
 <details>
   
-### Playwright Selector Engine
-Built-in selector engine from Playwright:
+### Locators
+Locators represent a way to find element(s) on the page at any moment and have auto-waiting and retry-ability. These are the recommended built-in locators. 
 
 ```
-Page.locator(‘text=ming’)
-Page.locator(‘css=[aria-hidden=true]’)
-Page.locator(‘xpath=//html/body/a’)
-Page.locator(‘.something >> visible=true >> nth=2’) // nth: selector engine -> 0-based
-Page.locator(‘:nth-match(:text(“Buy”), 3)’) // CSS pseudo-class -> 1-based
-Page.locator(‘_react=ReactComponent’)
-Page.locator(‘_vue=vue-component’)
-Page.locator(‘role=checkbox[checked][include-hidden]
-Page.locator(‘id=username’)
-Page.locator(‘data-test-id=submit’)
-Page.locator(‘data-testid=1234’)
-Page.locator(‘data-test=test’)
+page.getByRole() to locate by explicit and implicit accessibility attributes.
+page.getByText() to locate by text content.
+page.getByLabel() to locate a form control by associated label's text.
+page.getByPlaceholder() to locate an input by placeholder.
+page.getByAltText() to locate an element, usually image, by its text alternative.
+page.getByTitle() to locate an element by its title attribute.
+page.getByTestId() to locate an element based on its data-testid attribute (other attributes can be configured).
+page.locator() to locate an element based on CSS and XPath selectors
 ```
-https://playwright.dev/docs/selectors 
 
-### Selector
-#### Selector - Text Selector
-
-![image](https://github.com/user-attachments/assets/5537ef8e-ca05-4a3b-b3d5-9457080684fc)
-
-https://playwright.dev/docs/selectors#text-selector 
-
-#### Selector - CSS, XPath Selector
-**CSS selectors**
-Playwright augments standard CSS selectors in two ways:
-
-- css engine pierces open shadow DOM by default.
-- Playwright adds custom pseudo-classes like :visible, :text and more.
+NOTE: Every time a locator is used for an action, an up-to-date DOM element is located in the page
 ```
-await page.locator(‘button')
-await page.locator(‘#id’)
-await page.locator(‘.class:visible’)
-```
-https://playwright.dev/docs/selectors#css-selector
-https://www.w3schools.com/cssref/css_selectors.asp  
+const locator = page.getByRole('button', { name: 'Sign in' });
 
-**XPath selectors**
+await locator.hover(); // located 1st
+await locator.click(); // relocated 2nd
 ```
-await page.locator(‘//html/body’)
-await page.locator(‘xpath=“//html/body”’)
-```
-xpath DOES NOT pierce shadow roots
 
-#### Selector - Conditional
-- Select elements containing another element:
+#### Locate by role
+Refer `role` value in https://www.w3.org/TR/html-aria/#docconformance - Rules of ARIA attribute usage by HTML element
 ```
-await page.locator(‘button‘, { hasText: ‘Click’ }) => Filter all button containing text Click
-await page.locator(‘article’, { has: page.locator(‘div#unique) }) => Get all article containing element with CSS Selector div#unique
-await page.locator(‘article:has(div.promo)’) => CSS pseudo class to select all article containing element with CSS Selector div.prommo
+await expect(page.getByRole('heading', { name: 'Sign up' })).toBeVisible();
+await page.getByRole('checkbox', { name: 'Subscribe' }).check();
+await page.getByRole('button', { name: /submit/i }).click();
 ```
-https://playwright.dev/docs/selectors#selecting-elements-that-contain-other-elements 
+
+#### Locate by label
+Use this locator when locating **form** fields.
+```
+<label>Password <input type="password" /></label>
+
+await page.getByLabel('Password').fill('secret');
+```
+
+#### Locate by placeholder
+Use this locator when locating **form** elements that do not have labels but do have placeholder texts.
+```
+<input type="email" placeholder="name@example.com" />
+
+await page
+    .getByPlaceholder('name@example.com')
+    .fill('playwright@microsoft.com');
+```
+
+#### Locate by text
+
+```
+//You can locate the element by the text it contains:
+await expect(page.getByText('Welcome, John')).toBeVisible();
+
+//Set an exact match:
+await expect(page.getByText('Welcome, John', { exact: true })).toBeVisible();
+
+//Match with a regular expression:
+await expect(page.getByText(/welcome, [A-Za-z]+$/i)).toBeVisible();
+```
+
+#### Locate by alt text
+Use this locator when your element supports alt text such as `img` and `area` elements.
+```
+<img alt="playwright logo" src="/img/playwright-logo.svg" width="100" />
+
+await page.getByAltText('playwright logo').click();
+```
+
+#### Locate by title
+
+```
+<span title='Issues count'>25 issues</span>
+
+await expect(page.getByTitle('Issues count')).toHaveText('25 issues');
+```
+
+#### Locate by test id
+QA's and developers should define explicit and unchangable test ids and query them. By default, `page.getByTestId()` will locate elements based on the `data-testid` attribute, but you can configure it in your test config or by calling `selectors.setTestIdAttribute()`.
+```
+<button data-testid="directions">Itinéraire</button>
+
+await page.getByTestId('directions').click();
+```
+
+```
+//playwright.config.ts
+import { defineConfig } from '@playwright/test';
+
+export default defineConfig({
+  use: {
+    testIdAttribute: 'data-pw'
+  }
+});
+```
+
+#### Locate by CSS or XPath
+```
+await page.locator('css=button').click();
+await page.locator('xpath=//button').click();
+
+await page.locator('button').click();
+await page.locator('//button').click();
+```
+
+#### Locate in Shadow DOM
+All locators in Playwright by default work with elements in Shadow DOM. The exceptions are:
+
+- Locating by **XPath** does not pierce shadow roots.
+- Closed-mode shadow roots are not supported.
+
+```
+<x-details role=button aria-expanded=true aria-controls=inner-details>
+  <div>Title</div>
+  #shadow-root
+    <div id=inner-details>Details</div>
+</x-details>
+
+await page.getByText('Details').click();
+await page.locator('x-details', { hasText: 'Details' }).click();
+```
+
+#### Filtering Locators
+```
+//Filter by text
+await page
+    .getByRole('listitem')
+    .filter({ hasText: 'Product 2' }) // can pass regular expression  .filter({ hasText: /Product 2/ })
+    .getByRole('button', { name: 'Add to cart' })
+    .click();
+
+//Filter by not having text
+await expect(page.getByRole('listitem').filter({ hasNotText: 'Out of stock' })).toHaveCount(5);
+```
+
+```
+<ul>
+  <li>
+    <h3>Product 1</h3>
+    <button>Add to cart</button>
+  </li>
+  <li>
+    <h3>Product 2</h3>
+    <button>Add to cart</button>
+  </li>
+</ul>
+
+//Filter by child/descendant
+await page
+    .getByRole('listitem') // li
+    .filter({ has: page.getByRole('heading', { name: 'Product 2' }) }) // find child/descendant h1-h6, is queried starting with the original 'li' locator match
+    .getByRole('button', { name: 'Add to cart' })
+    .click();
+
+//Filter by not having child/descendant
+await expect(page
+    .getByRole('listitem')
+    .filter({ hasNot: page.getByText('Product 2') }))
+    .toHaveCount(1);
+```
+
+#### Locator operators
+* Matching
+```
+//Matching inside a locator
+const product = page.getByRole('listitem').filter({ hasText: 'Product 2' });
+await product.getByRole('button', { name: 'Add to cart' }).click();
+
+const saveButton = page.getByRole('button', { name: 'Save' });
+const dialog = page.getByTestId('settings-dialog');
+await dialog.locator(saveButton).click();
+
+//Matching two locators simultaneously
+const button = page.getByRole('button').and(page.getByTitle('Subscribe'));
+
+//Matching one of the two alternative locators
+//e.g: you'd like to click on a "New email" button, but sometimes a security settings dialog shows up instead. In this case, you can wait for either a "New email" button, or a dialog and act accordingly.
+//If both "New email" button and security dialog appear on screen, the "or" locator will match both of them, possibly throwing the "strict mode violation" error. In this case, you can use locator.first() to only match one of them.
+const newEmail = page.getByRole('button', { name: 'New' });
+const dialog = page.getByText('Confirm security settings');
+await expect(newEmail.or(dialog).first()).toBeVisible();
+if (await dialog.isVisible())
+  await page.getByRole('button', { name: 'Dismiss' }).click();
+await newEmail.click();
+
+//Matching only visible elements
+<button style='display: none'>Invisible</button>
+<button>Visible</button>
+
+await page.locator('button').locator('visible=true').click();
+```
+
+* Lists
+```
+//Count items in a list
+await expect(page.getByRole('listitem')).toHaveCount(3);
+
+//Assert all text in a list
+await expect(page
+    .getByRole('listitem'))
+    .toHaveText(['apple', 'banana', 'orange']);
+
+//Get a specific item
+const banana = await page.getByRole('listitem').nth(1); //Get by nth item
+
+//Chaining filters
+const rowLocator = page.getByRole('listitem')
+    .filter({ hasText: 'Mary' })
+    .filter({ has: page.getByRole('button', { name: 'Say goodbye' }) })
+    .screenshot({ path: 'screenshot.png' });
+
+//Iterate elements
+for (const row of await page.getByRole('listitem').all())
+  console.log(await row.textContent());
+```
 
 - Select elements matching one of the conditions
 ```
 await page.locator('button:has-text("Log in"), button:has-text("Sign in")').click(); => Click a button that has either a “Log in” or “Sign in” text
 await page.locator(`//span[contains(@class, 'spinner__loading')] | //div[@id='confirmation']`).waitFor(); => Wait for either confirmation dialog or the loading indicator to appear
 ```
-https://playwright.dev/docs/selectors#selecting-elements-matching-one-of-the-conditions  
+
 
 #### Selector - Layout
 Select element by Page Layout: 
@@ -190,7 +352,6 @@ Example: `await page.locator('input:right-of(:text("Username"))').fill('value');
 
 ![image](https://github.com/user-attachments/assets/fdbe84b6-72a3-415f-8ab4-1c6a9b17ce03)
 
-https://playwright.dev/docs/selectors#selecting-elements-based-on-layout 
 https://developer.mozilla.org/en-US/docs/Web/API/Element/getBoundingClientRect 
 
 #### Selector - Shadow DOM
@@ -207,8 +368,6 @@ CSS and Text selector engines pierce the Shadow DOM by default:
 
 To opt-out of the default Shadow DOM piercing feature, we can use:
 `await page.locator(‘:light(.article > .header)’).click()`
-
-https://playwright.dev/docs/selectors#selecting-elements-in-shadow-dom 
 
 ![image](https://github.com/user-attachments/assets/c4b7cc7b-5006-4d03-b54c-e71ae4ced223)
 
@@ -245,7 +404,6 @@ Document
   .querySelector(‘.dragon > .ball’)
   .querySelector(‘button[disabled=true]’)
 ```
-https://playwright.dev/docs/selectors#chaining-selectors 
 https://developer.mozilla.org/en-US/docs/Web/API/Document/querySelector 
 
 ### Custom Selector Engine
